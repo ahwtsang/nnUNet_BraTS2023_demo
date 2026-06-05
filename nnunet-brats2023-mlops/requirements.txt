@@ -1,0 +1,7 @@
+# PyTorch (with CUDA) is expected to be preinstalled by the RunPod base image.
+# If you are NOT on a PyTorch pod, install a CUDA build first, e.g.:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu124
+nnunetv2>=2.5
+wandb>=0.17
+nibabel>=5.2
+numpy
