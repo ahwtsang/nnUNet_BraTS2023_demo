@@ -12,7 +12,7 @@ DATASET_ID=${1:-137}
 DATASET_NAME=${2:-BraTS2023}
 CONFIG=3d_fullres
 TRAINER=nnUNetTrainerWandb250
-PLANS=nnUNetPlans
+PLANS=nnUNetResEncUNetMPlans
 
 : "${nnUNet_results:?Set nnU-Net env vars first: source env.sh}"
 
@@ -28,10 +28,10 @@ for FOLD in 0 1 2 3 4; do
 
   if [ -f "${OUT}/checkpoint_latest.pth" ]; then
     echo "=== Fold ${FOLD}: resuming from latest checkpoint ==="
-    nnUNetv2_train "$DATASET_ID" "$CONFIG" "$FOLD" -tr "$TRAINER" --npz --c
+    nnUNetv2_train "$DATASET_ID" "$CONFIG" "$FOLD" -tr "$TRAINER" -p "$PLANS" --npz --c
   else
     echo "=== Fold ${FOLD}: starting fresh ==="
-    nnUNetv2_train "$DATASET_ID" "$CONFIG" "$FOLD" -tr "$TRAINER" --npz
+    nnUNetv2_train "$DATASET_ID" "$CONFIG" "$FOLD" -tr "$TRAINER"  -p "$PLANS" --npz
   fi
 done
 
