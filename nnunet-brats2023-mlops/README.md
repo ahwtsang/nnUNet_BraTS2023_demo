@@ -18,7 +18,11 @@ nnunet-brats2023-mlops/
 │   ├── 02_preprocess.sh            # plan + preprocess (3d_fullres)
 │   ├── 03_train_folds.sh           # 5 folds x 250 epochs, resume-aware
 │   ├── 04_find_best_config.sh      # CV evaluation + postprocessing
-│   └── 05_aggregate_wandb.py       # mean ± std Dice summary -> W&B
+│   ├── 05_aggregate_wandb.py       # mean ± std Dice summary -> W&B
+│   ├── prepare_inference_inputs.py # BraTS cases -> channel-named inputs
+│   ├── 06_predict.sh               # 5-fold ensemble inference
+│   ├── 07_export_model.sh          # package the shareable model .zip
+│   └── export_pytorch_model.py     # standalone .pth / TorchScript export
 └── blog/writeup.md                 # blog-post skeleton
 ```
 
@@ -115,10 +119,53 @@ python scripts/05_aggregate_wandb.py         # mean ± std Dice -> W&B summary
 per-fold/per-region table plus mean ± std Dice (WT / TC / ET) and an overall
 mean to a dedicated `cv_summary` W&B run — the centerpiece chart for your blog.
 
-## Step 8 — Publish
+## Step 8 — Run inference
+
+Predict on new / held-out cases with the full 5-fold ensemble. Input is a folder
+of BraTS-style case subfolders (each holding the 4 modality `.nii.gz` files; a
+seg is not needed for inference):
+
+```bash
+bash scripts/06_predict.sh /workspace/raw_brats2023/val /workspace/preds 137 BraTS2023
+```
+
+This (1) copies each case's modalities into nnU-Net channel naming
+(`CASEID_0000.._0003`), (2) runs `nnUNetv2_predict` with `-f 0 1 2 3 4` so all
+five folds are ensembled, then (3) applies the postprocessing from Step 7 if its
+`postprocessing.pkl` exists. Outputs land in `…/predictions/` (and
+`…/predictions_postprocessed/`).
+
+## Step 9 — Create the model file
+
+Training already wrote a PyTorch checkpoint (`checkpoint_final.pth`) for **each
+fold** under `nnUNet_results`. This step packages those into portable artifacts.
+
+**Shareable nnU-Net model (recommended)** — bundles plans, `dataset.json` and all
+five fold checkpoints into one `.zip` you can attach to a GitHub Release:
+
+```bash
+bash scripts/07_export_model.sh 137 nnunet_brats2023_3dfullres_model.zip
+# import elsewhere:  nnUNetv2_install_pretrained_model_from_zip <file>.zip
+```
+
+**Standalone PyTorch file (optional)** — a clean weights-only `.pth`, plus an
+optional TorchScript `.ts.pt`, built straight from a fold via `nnUNetPredictor`:
+
+```bash
+python scripts/export_pytorch_model.py --fold 0 --out model_brats2023_fold0 --torchscript
+```
+
+> Note: the standalone files contain only the network weights/graph. nnU-Net's
+> preprocessing and sliding-window inference are **not** inside them, so for real
+> end-to-end inference on raw MRI use Step 8 or the exported `.zip`. The
+> standalone export is for demonstrating a framework-agnostic deployment artifact.
+
+## Step 10 — Publish
 
 - Commit code, configs and your W&B run links. **Do not commit data or weights**
   (`.gitignore` already excludes `*.nii.gz`, `*.pth`, `nnUNet_*`, `wandb/`).
+- The model `.zip` can be large — attach it to a **GitHub Release** or use
+  **Git LFS** rather than committing it into history.
 - Flesh out `blog/writeup.md`, embedding W&B charts and a prediction-vs-ground-
   truth overlay.
 
@@ -134,6 +181,9 @@ mean to a dedicated `cv_summary` W&B run — the centerpiece chart for your blog
 | Train (5 folds) | `bash scripts/03_train_folds.sh 137 BraTS2023` |
 | CV summary | `bash scripts/04_find_best_config.sh 137` |
 | Aggregate to W&B | `python scripts/05_aggregate_wandb.py` |
+| Inference | `bash scripts/06_predict.sh <cases_dir> <out_dir> 137 BraTS2023` |
+| Export model .zip | `bash scripts/07_export_model.sh 137 model.zip` |
+| Standalone .pth | `python scripts/export_pytorch_model.py --fold 0 --out model_fold0` |
 
 ### Notes & knobs
 - **Fewer/more epochs:** change `self.num_epochs` in `nnUNetTrainerWandb250.py`
