@@ -31,8 +31,14 @@ except ImportError:  # training must still run without wandb installed
 
 
 class nnUNetTrainerWandb250(nnUNetTrainer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
+                 device: torch.device = torch.device('cuda')):
+        # NOTE: the signature must match nnUNetTrainer.__init__ EXACTLY (no
+        # *args/**kwargs). The base __init__ introspects self.__init__'s
+        # parameter names and looks each one up in locals(); a *args/**kwargs
+        # signature makes it look for a local named "args" and raises
+        # KeyError: 'args'.
+        super().__init__(plans, configuration, fold, dataset_json, device)
         # ---- the only hyper-parameter change vs. the default trainer ----
         self.num_epochs = 250
         self._wandb_run = None
@@ -60,10 +66,24 @@ class nnUNetTrainerWandb250(nnUNetTrainer):
         except Exception:
             return None
 
-    @staticmethod
-    def _last(log: dict, key):
-        vals = log.get(key, [])
-        return vals[-1] if len(vals) else None
+    def _metric(self, key):
+        """Latest value for a logged key, across nnU-Net logger versions.
+
+        Newer nnU-Net uses MetaLogger with a public get_value(); older versions
+        exposed an internal my_fantastic_logging dict. Returns None if neither
+        is available so logging can never crash training.
+        """
+        logger = self.logger
+        if hasattr(logger, "get_value"):
+            try:
+                return logger.get_value(key, step=-1)
+            except Exception:
+                return None
+        store = getattr(logger, "my_fantastic_logging", None)
+        if isinstance(store, dict):
+            vals = store.get(key, [])
+            return vals[-1] if len(vals) else None
+        return None
 
     # ------------------------------------------------------------------ #
     # lifecycle hooks
@@ -74,6 +94,13 @@ class nnUNetTrainerWandb250(nnUNetTrainer):
             return
         ds_name = self._dataset_name()
         run_id = f"{ds_name}_{self.configuration_name}_fold{self.fold}"
+
+        def _safe(fn):
+            try:
+                return fn()
+            except Exception:
+                return None
+
         self._wandb_run = wandb.init(
             project=os.environ.get("WANDB_PROJECT", "nnunet-brats2023-5fold"),
             entity=os.environ.get("WANDB_ENTITY"),  # None -> default entity
@@ -84,13 +111,13 @@ class nnUNetTrainerWandb250(nnUNetTrainer):
             resume="allow",
             config={
                 "dataset": ds_name,
-                "configuration": self.configuration_name,
+                "configuration": getattr(self, "configuration_name", None),
                 "fold": self.fold,
                 "num_epochs": self.num_epochs,
-                "batch_size": self.batch_size,
-                "patch_size": list(self.configuration_manager.patch_size),
-                "initial_lr": self.initial_lr,
-                "weight_decay": self.weight_decay,
+                "batch_size": getattr(self, "batch_size", None),
+                "patch_size": _safe(lambda: list(self.configuration_manager.patch_size)),
+                "initial_lr": getattr(self, "initial_lr", None),
+                "weight_decay": getattr(self, "weight_decay", None),
                 "trainer": type(self).__name__,
             },
         )
@@ -101,24 +128,23 @@ class nnUNetTrainerWandb250(nnUNetTrainer):
         if not self._wandb_enabled() or self._wandb_run is None:
             return
 
-        log = self.logger.my_fantastic_logging
         epoch = self.current_epoch
 
         metrics = {
-            "train/loss": self._last(log, "train_losses"),
-            "val/loss": self._last(log, "val_losses"),
-            "val/ema_fg_dice": self._last(log, "ema_fg_dice"),
-            "val/mean_fg_dice": self._last(log, "mean_fg_dice"),
-            "lr": self._last(log, "lrs"),
+            "train/loss": self._metric("train_losses"),
+            "val/loss": self._metric("val_losses"),
+            "val/ema_fg_dice": self._metric("ema_fg_dice"),
+            "val/mean_fg_dice": self._metric("mean_fg_dice"),
+            "lr": self._metric("lrs"),
         }
 
-        starts = log.get("epoch_start_timestamps", [])
-        ends = log.get("epoch_end_timestamps", [])
-        if len(starts) and len(ends):
-            metrics["time/epoch_seconds"] = ends[-1] - starts[-1]
+        start = self._metric("epoch_start_timestamps")
+        end = self._metric("epoch_end_timestamps")
+        if start is not None and end is not None:
+            metrics["time/epoch_seconds"] = end - start
 
         # per-region pseudo-Dice (BraTS: whole_tumor / tumor_core / enhancing_tumor)
-        dice = self._last(log, "dice_per_class_or_region")
+        dice = self._metric("dice_per_class_or_region")
         if dice is not None:
             names = self._region_names()
             for i, d in enumerate(dice):
@@ -126,7 +152,8 @@ class nnUNetTrainerWandb250(nnUNetTrainer):
                 metrics[f"val/dice_{label}"] = float(d)
 
         metrics = {k: v for k, v in metrics.items() if v is not None}
-        wandb.log(metrics, step=epoch)
+        if metrics:
+            wandb.log(metrics, step=epoch)
 
     def on_train_end(self):
         super().on_train_end()
