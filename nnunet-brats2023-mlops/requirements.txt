@@ -1,7 +1,15 @@
-# PyTorch (with CUDA) is expected to be preinstalled by the RunPod base image.
-# If you are NOT on a PyTorch pod, install a CUDA build first, e.g.:
-#   pip install torch --index-url https://download.pytorch.org/whl/cu124
-nnunetv2>=2.5
-wandb>=0.17
+# Stack verified working on an RTX 5090 (Blackwell / sm_120) on RunPod.
+#
+# torch + torchvision carry a +cu128 local version and live on the PyTorch
+# CUDA 12.8 wheel index, NOT on PyPI, so we add that as an extra index.
+# Everything else resolves from PyPI as usual.
+--extra-index-url https://download.pytorch.org/whl/cu128
+
+torch==2.8.0+cu128
+torchvision==0.23.0+cu128
+nnunetv2==2.7.0
+wandb==0.27.2
+
+# supporting deps used by the conversion / inference scripts
 nibabel>=5.2
 numpy
