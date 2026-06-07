@@ -16,7 +16,7 @@ DATASET_ID=${3:-137}
 DATASET_NAME=${4:-BraTS2023}
 CONFIG=3d_fullres
 TRAINER=nnUNetTrainerWandb250
-PLANS=nnUNetPlans
+PLANS=nnUNetResEncUNetMPlans
 
 : "${nnUNet_results:?Set nnU-Net env vars first: source env.sh}"
 
