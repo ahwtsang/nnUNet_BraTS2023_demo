@@ -208,7 +208,7 @@ at build time; the entrypoint auto-prepares channel-named inputs and runs the
 - Images and weights are **not** committed to the repository, i.e. 
   `.gitignore` excludes `*.nii.gz`, `*.pth`, `nnUNet_*`, `wandb/`.
 - W&B link for the 5-fold training and cross-validation summary: https://wandb.ai/adrianhwtsang-none/nnunet-brats2023-5fold
-- The model `.zip` is large — attached to **GitHub Release**.
+- The model `.zip` is large — added in parts to **model_storage** repo (https://github.com/ahwtsang/model_storage).
 
 ---
 
