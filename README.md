@@ -9,7 +9,6 @@ proper **5-fold cross-validation at 250 epochs/fold**, track everything in
 nnUNet_BraTS2023_demo/
 ├── env.sh                          # nnU-Net paths + W&B config (source it)
 ├── requirements.txt
-├── Dockerfile                      # optional, for a pinned environment
 ├── nnunet_trainer/
 │   └── nnUNetTrainerWandb250.py    # custom trainer: 250 epochs + W&B logging
 ├── scripts/
@@ -23,11 +22,11 @@ nnUNet_BraTS2023_demo/
 │   ├── 06_predict.sh               # 5-fold ensemble inference
 │   ├── 07_export_model.sh          # package the shareable model .zip
 │   ├── export_pytorch_model.py     # standalone .pth / TorchScript export
-│   └── overlay_prediction.py       # prediction-vs-GT overlay PNG (blog visual)
+│   └── overlay_prediction.py       # prediction overlay PNG
+├── Dockerfile                      # for a pinned environment
 ├── Dockerfile.inference            # inference-only image (bakes in model .zip)
 ├── docker/
 │   └── entrypoint_predict.sh       # entrypoint for the inference image
-└── blog/writeup.md                 # blog-post skeleton
 ```
 
 ---
@@ -52,8 +51,7 @@ cd /workspace
 git clone <your-repo-url> project && cd project
 ```
 
-BraTS 2023 is license-gated (register on Synapse).
-The training and validation sets were downloaded from Synapse and rsync to get the data to the pod. The training dataset contains 1251 cases, each with a subfolder structure as:
+The BraTS 2023 datasets are available to all registered Synapse users who accept the post-challenge terms and conditions. The training and validation sets were downloaded from Synapse and rsync to get the data to the pod. The training dataset contains 1251 cases, each case is a subfolder that contains 4 modality images and segmentation as:
 ```
 ├── BraTS-GLI-00000-000/
 │   ├──BraTS-GLI-00000-000-t1c.nii.gz
@@ -62,6 +60,7 @@ The training and validation sets were downloaded from Synapse and rsync to get t
 │   ├──BraTS-GLI-00000-000-t2w.nii.gz
 │   ├──BraTS-GLI-00000-000-seg.nii.gz
 ```
+The validation dataset contains 219 cases with similar folder structure as the training dataset.
 
 ## Step 3 — One-time environment setup
 
@@ -121,13 +120,13 @@ python scripts/05_aggregate_wandb.py         # mean ± std Dice -> W&B summary
 
 `05_aggregate_wandb.py` reads each fold's `validation/summary.json` and logs a
 per-fold/per-region table plus mean ± std Dice (WT / TC / ET) and an overall
-mean to a dedicated `cv_summary` W&B run — the centerpiece chart for your blog.
+mean to a dedicated `cv_summary` W&B run.
 
 ## Step 8 — Run inference
 
 Predict on new / held-out cases with the full 5-fold ensemble. Input is a folder
 of BraTS-style case subfolders (each holding the 4 modality `.nii.gz` files; a
-seg is not needed for inference):
+seg is not needed for inference).
 
 ```bash
 bash scripts/06_predict.sh /workspace/raw_brats2023/val /workspace/preds 137 BraTS2023
@@ -164,10 +163,10 @@ python scripts/export_pytorch_model.py --fold 0 --out model_brats2023_fold0 --to
 > end-to-end inference on raw MRI use Step 8 or the exported `.zip`. The
 > standalone export is for demonstrating a framework-agnostic deployment artifact.
 
-## Step 10 — Blog visual: prediction-vs-ground-truth overlay
+## Step 10 — Prediction visual: prediction overlay over FLAIR or T1CE
 
-Render the hero figure for the write-up — MRI, ground truth, and prediction
-side by side on the most informative slice, with per-region 3D Dice in the title:
+Render the figure to show — MRI, prediction, ground truth (if available)
+side by side on the most informative slice.
 
 ```bash
 python scripts/overlay_prediction.py \
@@ -182,13 +181,13 @@ Use channel `_0003` (FLAIR) as the background to show the whole tumor, or `_0001
 regions correctly from each source: the ground truth from its sub-region labels
 (NCR/ED/ET) and the prediction from nnU-Net's ordinal region encoding (≥1 WT,
 ≥2 TC, ≥3 ET), so the panels are directly comparable. Drop `--gt` for inference
-cases with no ground truth. Note: The BraTS-GLI 2023 Valication dataset does not 
+cases with no ground truth. Note: The BraTS-GLI 2023 Validation dataset does not 
 include the segmentation ground truth.
 
 ## Step 11 — Inference-only Docker image
 
 Package the exported model (`.zip` from Step 9) into a self-contained image that
-runs prediction with no setup:
+runs prediction with no setup.
 
 ```bash
 # build (model zip must be in the build context)
@@ -206,12 +205,10 @@ at build time; the entrypoint auto-prepares channel-named inputs and runs the
 
 ## Step 12 — Publish
 
-- Commit code, configs and your W&B run links. **Do not commit data or weights**
-  (`.gitignore` already excludes `*.nii.gz`, `*.pth`, `nnUNet_*`, `wandb/`).
-- The model `.zip` can be large — attach it to a **GitHub Release** or use
-  **Git LFS** rather than committing it into history.
-- Flesh out `blog/writeup.md`, embedding W&B charts and a prediction-vs-ground-
-  truth overlay.
+- Images and weights are **not** committed to the repository, i.e. 
+  `.gitignore` excludes `*.nii.gz`, `*.pth`, `nnUNet_*`, `wandb/`.
+- W&B link for the 5-fold training and cross-validation summary: https://wandb.ai/adrianhwtsang-none/nnunet-brats2023-5fold
+- The model `.zip` is large — attached to **GitHub Release**.
 
 ---
 
@@ -235,7 +232,4 @@ at build time; the entrypoint auto-prepares channel-named inputs and runs the
 - **Fewer/more epochs:** change `self.num_epochs` in `nnUNetTrainerWandb250.py`
   (re-run `00_setup.sh` to reinstall), then retrain.
 - **Disable tracking:** `export WANDB_DISABLED=true` (training still runs).
-- **Bigger model later:** add ResEnc planning
-  (`nnUNetv2_plan_and_preprocess -d 137 -pl nnUNetPlannerResEncM -c 3d_fullres`)
-  and train with `-p nnUNetResEncUNetMPlans`. ResEncM/L fit a 4090.
-- Tune `nnUNet_n_proc_DA` in `env.sh` to your pod's vCPU count (16–18 for a 4090).
+- Tune `nnUNet_n_proc_DA` in `env.sh` to the pod's vCPU count (24 for the RTX Pro 4500).
