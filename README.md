@@ -107,9 +107,9 @@ bash scripts/03_train_folds.sh 137 BraTS2023
   with a deterministic run id so a resumed fold reconnects to the same run.
 
 **Rough timing/cost:** nnU-Net runs a fixed 250 iterations/epoch, so per-epoch
-time is roughly constant. On the RTX PRO 4500, each epoch takes ~50 secs, ~4 hr/fold,
-**~20 GPU-hours** for all five folds. The RunPod rate for RTX PRO 4500 is
-($0.74/hr) so that's **~$15**, plus a few dollars of preprocessing and storage.
+time is roughly constant. On the RTX PRO 4500, timing is approx. 50s/epoch, 4 hr/fold,
+**20 GPU-hours** for all five folds. The RunPod rate for RTX PRO 4500 is
+($0.74/hr) so total cost is approx. **$15** plus a few dollars of preprocessing and storage.
 
 ## Step 7 — Cross-validation summary
 
