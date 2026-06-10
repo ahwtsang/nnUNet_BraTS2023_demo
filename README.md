@@ -108,9 +108,9 @@ bash scripts/03_train_folds.sh 137 BraTS2023
   with a deterministic run id so a resumed fold reconnects to the same run.
 
 **Rough timing/cost:** nnU-Net runs a fixed 250 iterations/epoch, so per-epoch
-time is roughly constant. On the RTX PRO 4500, each epoch takes ~50 secs → ~4 hr/fold →
+time is roughly constant. On the RTX PRO 4500, each epoch takes ~50 secs, ~4 hr/fold,
 **~20 GPU-hours** for all five folds. The RunPod rate for RTX PRO 4500 is
-($0.74/hr) that's **~$15**, plus a few dollars of preprocessing and storage;
+($0.74/hr) so that's **~$15**, plus a few dollars of preprocessing and storage.
 
 ## Step 7 — Cross-validation summary
 
@@ -173,7 +173,7 @@ side by side on the most informative slice, with per-region 3D Dice in the title
 python scripts/overlay_prediction.py \
     --image /workspace/preds/_nnunet_inputs/<CASEID>_0003.nii.gz \
     --pred  /workspace/preds/predictions/<CASEID>.nii.gz \
-    --gt    /workspace/nnUNet_raw/Dataset137_BraTS2023/labelsTr/<CASEID>.nii.gz \
+    --gt    /workspace/nnUNet_raw/Dataset137_BraTS2023/labelsTr/<CASEID>.nii.gz (optional) \
     --out   overlay_<CASEID>.png
 ```
 
@@ -182,7 +182,8 @@ Use channel `_0003` (FLAIR) as the background to show the whole tumor, or `_0001
 regions correctly from each source: the ground truth from its sub-region labels
 (NCR/ED/ET) and the prediction from nnU-Net's ordinal region encoding (≥1 WT,
 ≥2 TC, ≥3 ET), so the panels are directly comparable. Drop `--gt` for inference
-cases with no ground truth.
+cases with no ground truth. Note: The BraTS-GLI 2023 Valication dataset does not 
+include the segmentation ground truth.
 
 ## Step 11 — Inference-only Docker image
 
@@ -227,7 +228,7 @@ at build time; the entrypoint auto-prepares channel-named inputs and runs the
 | Inference | `bash scripts/06_predict.sh <cases_dir> <out_dir> 137 BraTS2023` |
 | Export model .zip | `bash scripts/07_export_model.sh 137 model.zip` |
 | Standalone .pth | `python scripts/export_pytorch_model.py --fold 0 --out model_fold0` |
-| Blog overlay PNG | `python scripts/overlay_prediction.py --image <flair> --pred <pred> --gt <gt> --out fig.png` |
+| Overlay PNG | `python scripts/overlay_prediction.py --image <flair> --pred <pred> --gt <gt> --out fig.png` |
 | Inference image | `docker build -f Dockerfile.inference -t brats-nnunet-infer .` |
 
 ### Notes & knobs

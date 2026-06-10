@@ -8,8 +8,8 @@ export nnUNet_preprocessed="/workspace/nnUNet_preprocessed"
 export nnUNet_results="/workspace/nnUNet_results"
 mkdir -p "$nnUNet_raw" "$nnUNet_preprocessed" "$nnUNet_results"
 
-# Data-augmentation worker processes. 16-18 is the recommended value for an
-# RTX 4090 (raise/lower to match the vCPU count of your pod).
+# Data-augmentation worker processes. 24 is the recommended value for an
+# RTX Pro 4500 (raise/lower to match the vCPU count of your pod).
 export nnUNet_n_proc_DA=16
 
 # ---- Weights & Biases ----

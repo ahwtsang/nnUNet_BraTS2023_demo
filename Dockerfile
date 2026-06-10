@@ -1,4 +1,4 @@
-# Pinned reproducible environment for RTX 5090 (Blackwell / sm_120).
+# Pinned reproducible environment for RTX Pro 4500 (Blackwell / sm_120).
 # Match the tag to an available RunPod CUDA 12.8 PyTorch template (check the
 # RunPod template list for the current tag). requirements.txt pins torch from
 # the cu128 wheel index, so the key requirement of the base image is a recent
