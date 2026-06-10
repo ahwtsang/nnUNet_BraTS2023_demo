@@ -19,6 +19,7 @@ nnUNetv2_export_model_to_zip \
     -d "$DATASET_ID" \
     -o "$OUT_ZIP" \
     -c 3d_fullres \
+    -p nnUNetResEncUNetMPlans \
     -tr "$TRAINER" \
     -f 0 1 2 3 4 \
     -chk checkpoint_final.pth

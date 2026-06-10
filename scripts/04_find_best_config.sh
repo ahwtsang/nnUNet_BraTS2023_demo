@@ -7,8 +7,9 @@ set -euo pipefail
 
 DATASET_ID=${1:-137}
 TRAINER=nnUNetTrainerWandb250
+PLANS=nnUNetResEncUNetMPlans
 
-nnUNetv2_find_best_configuration "$DATASET_ID" -c 3d_fullres -tr "$TRAINER"
+nnUNetv2_find_best_configuration "$DATASET_ID" -c 3d_fullres -tr "$TRAINER" -p "$PLANS"
 
 echo "Cross-validation summary and postprocessing written under nnUNet_results."
 echo "See the generated inference_instructions.txt for the predict command."
