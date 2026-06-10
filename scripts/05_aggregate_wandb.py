@@ -42,7 +42,7 @@ def main() -> None:
     ap.add_argument("--dataset", default="Dataset137_BraTS2023")
     ap.add_argument("--trainer", default="nnUNetTrainerWandb250")
     ap.add_argument("--config", default="3d_fullres")
-    ap.add_argument("--plans", default="nnUNetPlans")
+    ap.add_argument("--plans", default="nnUNetResEncUNetMPlans")
     args = ap.parse_args()
 
     assert args.results_dir, "Set nnUNet_results env var (source env.sh) or pass --results_dir"

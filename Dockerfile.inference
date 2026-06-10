@@ -1,0 +1,46 @@
+# Inference-only image: bakes the exported nnU-Net model .zip into the image
+# and runs prediction. Build AFTER scripts/07_export_model.sh has produced the
+# model zip in the build context.
+#
+# Build (pass your zip filename if different):
+#   docker build -f Dockerfile.inference \
+#       --build-arg MODEL_ZIP=nnunet_brats2023_3dfullres_model.zip \
+#       -t brats-nnunet-infer .
+#
+# Run (GPU; mount input cases and an output folder):
+#   docker run --gpus all \
+#       -v /path/to/cases:/input \
+#       -v /path/to/out:/output \
+#       brats-nnunet-infer
+#
+# Match the base tag to an available CUDA 12.8 PyTorch image (Blackwell-ready).
+FROM runpod/pytorch:2.8.0-py3.11-cuda12.8.1-runtime-ubuntu22.04
+
+# nnU-Net env: the model installs under nnUNet_results; raw/preprocessed are
+# unused at inference but the vars must exist.
+ENV nnUNet_raw=/data/nnUNet_raw \
+    nnUNet_preprocessed=/data/nnUNet_preprocessed \
+    nnUNet_results=/data/nnUNet_results \
+    WANDB_DISABLED=true
+
+WORKDIR /app
+RUN pip install --no-cache-dir nnunetv2==2.7.0 nibabel
+
+# The trained model folder is named after the custom trainer, so make the class
+# importable. Its wandb import is guarded, so wandb is NOT required here.
+COPY nnunet_trainer/nnUNetTrainerWandb250.py /tmp/trainer.py
+RUN TRAINER_DIR=$(python -c "import nnunetv2, os; print(os.path.join(os.path.dirname(nnunetv2.__file__), 'training', 'nnUNetTrainer', 'variants'))") \
+    && mkdir -p "$TRAINER_DIR" && cp /tmp/trainer.py "$TRAINER_DIR/nnUNetTrainerWandb250.py"
+
+# Bake the exported model into the image.
+ARG MODEL_ZIP=nnunet_brats2023_3dfullres_model.zip
+COPY ${MODEL_ZIP} /tmp/model.zip
+RUN mkdir -p "$nnUNet_results" \
+    && nnUNetv2_install_pretrained_model_from_zip /tmp/model.zip \
+    && rm /tmp/model.zip
+
+COPY scripts/prepare_inference_inputs.py /app/prepare_inference_inputs.py
+COPY docker/entrypoint_predict.sh /app/entrypoint_predict.sh
+RUN chmod +x /app/entrypoint_predict.sh
+
+ENTRYPOINT ["/app/entrypoint_predict.sh"]

@@ -34,7 +34,7 @@ def main() -> None:
     ap.add_argument("--dataset", default="Dataset137_BraTS2023")
     ap.add_argument("--trainer", default="nnUNetTrainerWandb250")
     ap.add_argument("--config", default="3d_fullres")
-    ap.add_argument("--plans", default="nnUNetPlans")
+    ap.add_argument("--plans", default="nnUNetResEncUNetMPlans")
     ap.add_argument("--fold", type=int, default=0)
     ap.add_argument("--checkpoint", default="checkpoint_final.pth")
     ap.add_argument("--out", default="model_brats2023_fold0")
